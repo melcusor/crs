@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Conversational Recommender System for Food Recommendation{% endblock %}</h1>
+{% endblock %}
+
+
+{% block app_content %}
+    <head>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    </head>
+
+    <body>
+        <div id="dialog_frame" class="row form-group" >
+            <div class="col-md-12">
+
+                    <div id="chat">
+                        <div class="system">
+                            <div> Recommender System: </div>
+                            <div> Hallo! Was kann ich für dich tun? </div>
+                        </div>
+                    </div>
+
+            </div>
+        </div>
+
+        <div class="row form-group">
+            <input type="checkbox" name="nlu-data-display" id="nlu-data-display" value="Show Info Detected" onchange="change_display_info()"  checked>
+            <label for="nlu-data-display">Show Info Detected</label>
+        </div>
+        <div id="user_input_text" class="row form-group">
+            <div class="col">
+                <!-- <input id="text" size="80" placeholder="Enter your message here" autofocus> -->
+                <input id="text" class="form-control" placeholder="Eingabe" type="text" autofocus>
+                <!-- <a href="#" onclick="leave_room();">Leave this chat</a> -->
+            </div>
+        </div>
+
+        <div id="input_submit_button" class="row form-group">
+            <div class="col">
+                <button id="submit_button" type="button" class="btn btn-primary btn-block" onclick="send_user_input()">
+                    Submit
+                </button>
+            </div>
+        </div>
+
+        <div id="detected-info-area" class="panel panel-default form-group">
+            <div class="panel-heading">Recognized Named Entities and Intents:</div>
+            <!-- Table -->
+            <table class="table" id="detected-info-table">
+
+            </table>
+        </div>
+
+    </body>
+
+        <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+        <script type="text/javascript" src="//cdn.socket.io/4.4.1/socket.io.min.js"></script>
+        <script type="text/javascript" charset="utf-8">
+            var socket;
+            $(document).ready(function(){
+                socket = io.connect('http://' + document.domain + ':' + location.port + '/crs');
+                socket.on('connect', function() {
+                    socket.emit('joined', {});
+                });
+                socket.on('status', function(data) {
+                    $('#chat').empty();
+                    $('#chat').append(
+                    '<div class="system">' +
+                        '<div> Recommender System: </div>' +
+                        '<div>' + data.msg + '</div>' +
+                    '</div>'
+                    );
+                    $('#chat').scrollTop($('#chat')[0].scrollHeight);
+                });
+
+                socket.on('push', function(data) {
+                    alert(data);
+                });
+
+                socket.on('end', function(data) {
+                    $('#text').prop('disabled', true);
+                    $('#submit_button').prop('disabled', true);
+
+                    socket.disconnect();
+                    //window.location.href = "{{ url_for('end') }}";
+                });
+
+                socket.on('user_input', function(data) {
+                    user_input = (typeof data.user_input !== 'undefined') ? data.user_input : "user nu am primit nimic";
+                    $('#chat').append(
+                    '<div class="user">' +
+                        '<div> You: </div>' +
+                        '<div>' + user_input + '</div>' +
+                    '</div>'
+                    );
+
+                    $('#chat').scrollTop($('#chat')[0].scrollHeight);
+                });
+
+                socket.on('system_prompt', function(data) {
+                    //const data_clone = structuredClone(data);
+                    const system_prompt = (typeof data.system_prompt !== 'undefined') ? data.system_prompt : "nothing received";
+                    console.log('=======================');
+                    console.log("system_prompt.ingredients: ");
+                    console.log(system_prompt.ingredients);
+                    //console.log(data_clone);
+                    console.log("system_prompt: ");
+                    console.log(system_prompt);
+
+                    if (typeof system_prompt.instructions !== "undefined") {
+                        let instr = system_prompt.instructions.split("\n").join("<br>");
+                        instr = decodeURI(instr);
+                        $('#chat').append(
+                            '<div class="container-fluid">' +
+                                '<div class="row">' +
+                                    '<div class="col-md-12">' +
+                                        '<div class="panel panel-default">' +
+                                            '<div class="panel-heading">' +
+                                                '<h3 class="panel-title">' + 'Zubereitung ' + '</h3>' +
+                                            '</div>' +
+                                            '<div class="panel-body">' + instr + '</div>' +
+                                        '</div>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>'
+                        );
+                    }
+                    if (typeof system_prompt.ingredients !== "undefined") {
+                        let ingredients = system_prompt.ingredients;
+                        ingredients = decodeURI(ingredients);
+                        console.log("INGREDIENTS: ", ingredients);
+                        while(ingredients.charAt(0) === ':')
+                        {
+                         ingredients = ingredients.substring(1);
+                        }
+                        ingredients = ingredients.replace(/\n\s*:/g,'\n ');
+                        ingredients = ingredients.split("\n").join("<br>");
+
+                        $('#chat').append(
+                            '<div class="container-fluid">' +
+                                '<div class="row">' +
+                                    '<div class="col-md-12">' +
+                                        '<div class="panel panel-default">' +
+                                            '<div class="panel-heading">' +
+                                                '<h3 class="panel-title">' + 'Zutaten ' + '</h3>' +
+                                            '</div>' +
+                                            '<div class="panel-body">' + ingredients + '</div>' +
+                                        '</div>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>'
+                        );
+                    }
+
+                    if (typeof system_prompt.details !== "undefined") {
+                        console.log("Recommendation details: ");
+                        console.log(system_prompt.details)
+
+                        let servings, duration, difficulty, energy, protein, carbohydrates, fat;
+                        servings = (typeof system_prompt.details.servings !== "undefined") ? system_prompt.details.servings : '-';
+                        duration = (typeof system_prompt.details.duration !== "undefined") ? system_prompt.details.duration : '-';
+                        difficulty = (typeof system_prompt.details.difficulty !== "undefined") ? system_prompt.details.difficulty : '-';
+                        servings = (typeof system_prompt.details.servings !== "undefined") ? system_prompt.details.servings : '-';
+                        protein = (typeof system_prompt.details.protein !== "undefined") ? system_prompt.details.protein : '-';
+
+                        kj = (typeof system_prompt.details.kj !== "undefined") ? system_prompt.details.kj : '-';
+                        kcal = (typeof system_prompt.details.kcal !== "undefined") ? system_prompt.details.kcal : '-';
+                        energy = kj + '/' + kcal;
+
+                        carbohydrates = (typeof system_prompt.details.carbohydrates !== "undefined") ? system_prompt.details.carbohydrates : '-';
+                        fat = (typeof system_prompt.details.fat !== "undefined") ? system_prompt.details.fat : '-';
+
+                        $('#chat').append(
+                            '<div class="container-fluid">' +
+                                '<div class="row">' +
+                                    '<div class="col-md-12">' +
+                                        '<div class="panel panel-default">' +
+                                            '<div class="panel-heading">' +
+                                                '<h3 class="panel-title">' + 'Weitere Details zum Rezept ' + '</h3>' +
+                                            '</div>' +
+                                            '<div class="panel-body">' +
+                                                '<table class="table table-condensed table-striped table-responsive">' +
+                                                    '<tbody class="small">' +
+                                                        '<tr>' +
+                                                            '<td>Portionen:</td>' +
+                                                            '<td>' + servings + '</td>' +
+                                                        '</tr>' +
+                                                        '<tr>' +
+                                                            '<td>Zeitaufwand:</td>' +
+                                                            '<td>' + duration + ' min.</td>' +
+                                                        '</tr>' +
+                                                        '<tr>' +
+                                                            '<td>Komplexität:</td>' +
+                                                            '<td>' + difficulty + '</td>' +
+                                                        '</tr>' +
+                                                        '<tr>' +
+                                                            '<td>Energiezufuhr in kj/kcal (Angaben pro 100g): </td>' +
+                                                            '<td>' + energy + ' kj./kcal.</td>' +
+                                                        '</tr>' +
+                                                        '<tr>' +
+                                                            '<td>Proteingehalt (Angaben pro 100g):</td>' +
+                                                            '<td>' + protein + ' g.</td>' +
+                                                        '</tr>' +
+                                                        '<tr>' +
+                                                            '<td>Kohlenhydrate (Angaben pro 100g):</td>' +
+                                                            '<td>' + carbohydrates + ' g.</td>' +
+                                                        '</tr>' +
+                                                        '<tr>' +
+                                                            '<td>Fettgehalt (Angaben pro 100g):</td>' +
+                                                            '<td>' + fat + 'g. </td>' +
+                                                        '</tr>' +
+                                                   '</tbody>' +
+                                                '</table>' +
+                                            '</div>' +
+                                        '</div>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>'
+                        );
+                    }
+
+                    if (typeof system_prompt.img_href !== "undefined") {
+                        console.log("IMG_HREF: ");
+                        console.log(system_prompt.img_href);
+                        $('#chat').append(
+                            '<div class="container-fluid">' +
+                                '<div class="row">' +
+                                    '<div class="col-md-12">' +
+                                        '<div class="panel panel-default">' +
+                                            '<div class="panel-body">' +
+
+                                                '<img class="img-responsive img-thumbnail" src="' + system_prompt.img_href + '" alt="recipe image">' +
+
+                                            '</div>' +
+                                        '</div>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>'
+                        );
+                    }
+
+                    if (typeof system_prompt.entities !== "undefined") {
+                        if (system_prompt.entities.entities_in !== "") {
+
+                            $('#chat').append(
+                                '<div class="container-fluid">' +
+                                    '<div class="row">' +
+                                        '<div class="col-md-12">' +
+                                            '<div class="panel panel-default">' +
+                                                '<div class="panel-heading">' +
+                                                    '<h3 class="panel-title">' + 'Deine Präferenzen ' + '</h3>' +
+                                                '</div>' +
+                                                '<div class="panel-body">' +
+                                                    '<span> Du suchst gerade nach: ' +
+                                                        system_prompt.entities.entities_in +
+                                                    '</span></br>' +
+                                                    '<span> Das möchtest du vermeiden: ' +
+                                                        system_prompt.entities.entities_out +
+                                                    '</span>' +
+                                                '</div>' +
+                                            '</div>' +
+                                        '</div>' +
+                                    '</div>' +
+                                '</div>'
+                            );
+                        }
+                    }
+
+                    if (typeof data.system_prompt.system_prompt !== 'undefined') {
+
+                        $('#chat').append(
+                            '<div class="system">' +
+                                '<div> Recommender System: </div>' +
+                                '<div>' + decodeURI(data.system_prompt.system_prompt) + '</div>' +
+                            '</div>'
+                        );
+                    }
+                    $('#chat').scrollTop($('#chat')[0].scrollHeight);
+                    $("#submit_button").button('reset');
+
+
+                    // show entities and intents below the submit/search button
+                    if (typeof system_prompt.bb_vars !== "undefined") {
+                        console.log(system_prompt.bb_vars);
+                        console.log(typeof system_prompt.bb_vars);
+                        console.log(system_prompt.bb_vars !== undefined);
+
+                        const intent = {
+                          _0: "01_provide_revise_preferences",
+                          _1: "02_reset_preferences",
+                          _2: "03_display_ingredients",
+                          _3: "04_display_instructions",
+                          _4: "05_display_details",
+                          _5: "06_display_image",
+                          _6: "07_quit",
+                          _7: "08_get_alternatives",
+                          _8: "09_user_feedback",
+                          _9: "10_system_capabilities"
+                        };
+
+                        $('#detected-info-table').html('');
+                        $('#detected-info-table').append('<tr><td>Entity name: ' + "current_intent: " + '</td><td>Value: ' + intent["_" + system_prompt.bb_vars.current_intent]  + '</td></tr>');
+                        $('#detected-info-table').append('<tr><td>Entity name: ' + "feedback: " + '</td><td>Value: ' + system_prompt.bb_vars.feedback  + '</td></tr>');
+
+                        $.each(system_prompt.bb_vars.named_entities, function() {
+                            console.log("---- jquery try ----");
+                            var key = Object.keys(this)[0];
+                            var value = this[key];
+                            console.log(this);
+                            console.log(system_prompt.bb_vars.named_entities);
+                            console.log(key);
+                            console.log(value);
+
+                            if (value.length !== 0) {
+                                $('#detected-info-table').append('<tr><td>Entity name: ' + key + '</td><td>Value(s): ' + value.join(", ")  + '</td></tr>');
+                            }
+                        });
+                    }
+
+
+
+                });
+
+                // when key is enter, it sends the message and empties the input field
+                $('#text').keypress(function(e) {
+                    var code = e.keyCode || e.which;
+                    if (code == 13) {
+                        text = $('#text').val();
+                        $('#text').val('');
+                        if (text.trim() != "") {
+                            $("#submit_button").button('loading');
+                            socket.emit('text', {msg: text});
+                        }
+                    }
+                });
+            });
+
+            function leave_room() {
+                socket.emit('left', {}, function() {
+                    socket.disconnect();
+
+                    // go back to the login page
+                    window.location.href = "{{ url_for('index') }}";
+                });
+            }
+
+            function send_user_input() {
+                text = $('#text').val();
+                $('#text').val('');
+                if (text.trim() != "") {
+                    $("#submit_button").button('loading');
+                    socket.emit('text', {msg: text});
+                }
+            }
+
+            function change_display_info() {
+                if ($('input[name="nlu-data-display"]:checked').val()) {
+                    $('#detected-info-area').show();
+                } else {
+                    $('#detected-info-area').hide();
+                }
+            }
+        </script>
+{% endblock %}

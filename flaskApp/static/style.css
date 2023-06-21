@@ -1,0 +1,31 @@
+#chat {
+/* https://stackoverflow.com/questions/35774016/making-a-bootstrap-div-scrollable */
+    border: 1px solid #ccc !important;
+    border-radius: 10px;
+    /*margin: 10px;*/
+    height: 350px;
+    max-height: 500px;
+    overflow-y: scroll;
+}
+
+.system {
+    background-color: #ddffff;
+    border-left: 3px solid #2196F3;
+    margin: 10px;
+    padding: 10px 5px;
+    border-radius: 3px;
+}
+
+.user {
+    background-color: #90F47457;
+    border-right: 3px solid #21F34CB3;
+    margin: 10px;
+    padding: 10px 5px;
+    border-radius: 3px;
+    text-align: right !important;
+}
+
+#user_input_text {
+ margin-top: 10px;
+ margin-bottom: 10px;
+}

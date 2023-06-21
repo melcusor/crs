@@ -1,0 +1,28 @@
+- model: 'BertClassifier/bert-base-german-cased-sentiment'
+  operations:
+    train:
+        description: Fine Tune German Bert Model for Intent Classification
+        main: crs_train_feedback_classification_model
+        # main: crs_train_intent_classification_model
+        default: yes
+        sourcecode:
+            - '*.py'
+            - '*.yml'
+        flags-import: all
+        flags:
+            dropout: 0.5
+            lr: 
+                default: 0.0001
+                choices: [0.1, 0.01, 0.001, 0.0001]
+            batch_size:
+                default: 16
+                choices: [8, 16, 32, 64]
+            epochs:
+                default: 5
+                choices: [1, 3, 5, 10, 50]
+            padding_max_length:
+                default: 64
+                choices: [32, 64]
+        # output-scalars: '(\key): (\value)'
+# model: 'BertClassifier/oliverguhr/german-sentiment-bert'
+# model: 'BertClassifier/bert-base-german-cased'
